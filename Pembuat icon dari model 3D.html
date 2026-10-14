@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pembuat icon dari model 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap">
+<style>
+:root{--bg:#EDEFF2;--panel:#fff;--ink:#14202B;--muted:#5A6876;--line:#C9D0D8;--accent:#F2A900;--on-accent:#14202B;--c1:#fff;--c2:#DDE2E8;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12171D;--panel:#1A222B;--ink:#E9EEF3;--muted:#93A1AE;--line:#2C3742;--accent:#F5B63A;--on-accent:#14202B;--c1:#222B35;--c2:#2C3743;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#12171D;--panel:#1A222B;--ink:#E9EEF3;--muted:#93A1AE;--line:#2C3742;--accent:#F5B63A;--on-accent:#14202B;--c1:#222B35;--c2:#2C3743;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.5 "Bricolage Grotesque",system-ui,sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:clamp(28px,6vw,44px);line-height:1.05;margin:8px 0;font-weight:800;letter-spacing:-.02em}
+.lead{color:var(--muted);margin:0 0 20px;max-width:46ch}
+.grid{display:grid;gap:16px;grid-template-columns:minmax(0,1fr);grid-template-areas:"drop" "stage" "ctrl"}
+@media(min-width:820px){.grid{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);grid-template-areas:"stage drop" "stage ctrl";align-items:start}.stage-col{position:sticky;top:16px}}
+.drop-wrap{grid-area:drop}.stage-col{grid-area:stage}.ctrl{grid-area:ctrl}
+.drop{position:relative;display:block;border:2px dashed var(--line);border-radius:14px;padding:18px;background:var(--panel);cursor:pointer}
+.drop.over,.drop:focus-within{border-color:var(--accent);border-style:solid}
+.drop input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.drop b{display:block;font-weight:600}
+.drop span{color:var(--muted);font-size:14px}
+.files{margin:12px 0 0;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}
+.files dt{color:var(--muted)}.files dd{margin:0;overflow-wrap:anywhere}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}
+button{font:inherit;color:inherit}
+.ghost{background:none;border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer}
+.stage{border:1px solid var(--line);border-radius:14px;overflow:hidden;position:relative;background:conic-gradient(var(--c2) 25%,var(--c1) 0 50%,var(--c2) 0 75%,var(--c1) 0) 0 0/20px 20px}
+canvas{display:block;width:100%;height:auto;aspect-ratio:1;touch-action:none;cursor:grab}
+canvas.px{image-rendering:pixelated}
+.empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;color:var(--muted);pointer-events:none}
+.empty[hidden]{display:none}
+.bar{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-top:12px;flex-wrap:wrap}
+.bar small{color:var(--muted)}
+.primary{background:var(--accent);color:var(--on-accent);border:0;border-radius:12px;padding:12px 20px;font-weight:800;cursor:pointer}
+.primary:disabled{opacity:.45;cursor:not-allowed}
+.ctrl{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:14px}
+.ctrl label,.ctrl .lab{display:flex;justify-content:space-between;font-size:14px;font-weight:600;margin-bottom:4px}
+.ctrl output{font-weight:400;color:var(--muted)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.seg button{border:1px solid var(--line);background:none;border-radius:10px;padding:8px 0;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chk{display:flex!important;justify-content:flex-start!important;align-items:center;gap:8px;font-weight:400!important;margin:0!important}
+input[type=color]{width:40px;height:30px;border:1px solid var(--line);border-radius:8px;background:none;padding:2px}
+.msg{min-height:1.4em;font-size:14px;color:var(--muted);margin:10px 0 0}
+#out{display:none;max-width:100%;margin-top:12px;border:1px solid var(--line);border-radius:10px}
+:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Icon dari model 3D</h1>
+  <p class="lead">Masukkan file .obj beserta texture-nya. Icon langsung dirender dan siap diunduh sebagai PNG.</p>
+
+  <div class="grid">
+    <div class="drop-wrap">
+      <label class="drop" id="drop">
+        <b>Seret file ke sini, atau pilih file</b>
+        <span>Satu .obj dan satu gambar texture (PNG, JPG, WebP), boleh sekaligus.</span>
+        <input type="file" id="file" multiple accept=".obj,image/*">
+      </label>
+      <dl class="files">
+        <dt>Model</dt><dd id="fm">Belum ada</dd>
+        <dt>Texture</dt><dd id="ft">Belum ada</dd>
+      </dl>
+      <div class="row"><button class="ghost" id="demo" type="button">Coba contoh</button></div>
+      <p class="msg" id="msg" aria-live="polite"></p>
+    </div>
+
+    <div class="stage-col">
+      <div class="stage">
+        <canvas id="c" width="256" height="256" aria-label="Pratinjau icon"></canvas>
+        <div class="empty" id="empty">Icon akan muncul di sini setelah file .obj diimpor.</div>
+      </div>
+      <div class="bar">
+        <small id="dim">256 × 256 px</small>
+        <button class="primary" id="save" type="button" disabled>Unduh PNG</button>
+      </div>
+      <img id="out" alt="Hasil icon">
+    </div>
+
+    <div class="ctrl">
+      <div>
+        <div class="lab">Ukuran icon</div>
+        <div class="seg" id="sizes">
+          <button type="button" data-s="64" aria-pressed="false">64</button>
+          <button type="button" data-s="128" aria-pressed="false">128</button>
+          <button type="button" data-s="256" aria-pressed="true">256</button>
+          <button type="button" data-s="512" aria-pressed="false">512</button>
+        </div>
+      </div>
+      <div><label for="yaw">Putar <output id="yaw_o">45°</output></label><input type="range" id="yaw" min="0" max="360" value="45"></div>
+      <div><label for="pitch">Miring <output id="pitch_o">30°</output></label><input type="range" id="pitch" min="-80" max="80" value="30"></div>
+      <div><label for="zoom">Pembesaran <output id="zoom_o">100%</output></label><input type="range" id="zoom" min="50" max="150" value="100"></div>
+      <div class="row" style="margin:0">
+        <label class="chk"><input type="checkbox" id="trans" checked> Latar transparan</label>
+        <input type="color" id="bg" value="#2B3A4A" disabled aria-label="Warna latar">
+      </div>
+      <label class="chk"><input type="checkbox" id="px"> Pixel tajam (untuk texture kecil)</label>
+      <label class="chk"><input type="checkbox" id="lit" checked> Pakai bayangan</label>
+      <div class="row" style="margin:0"><button class="ghost" id="reset" type="button">Atur ulang sudut</button></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const canvas = $('c');
+let R, scene, cam, amb, dir, mesh, tex, mat, size = 256, name = 'icon';
+
+try {
+  R = new THREE.WebGLRenderer({canvas, antialias: true, alpha: true, preserveDrawingBuffer: true});
+  R.outputEncoding = THREE.sRGBEncoding;
+  R.setPixelRatio(1);
+  scene = new THREE.Scene();
+  cam = new THREE.OrthographicCamera(-1, 1, 1, -1, .1, 50);
+  amb = new THREE.AmbientLight(0xffffff, .62);
+  dir = new THREE.DirectionalLight(0xffffff, .5);
+  scene.add(amb, dir);
+} catch (e) {
+  msg('Browser ini tidak mendukung WebGL, jadi icon tidak bisa dirender.');
+}
+
+function msg(t) { $('msg').textContent = t || ''; }
+
+const DLp = (async () => { try { return window.claude ? await window.claude.use('downloads') : null; } catch (e) { return null; } })();
+
+function parseOBJ(text) {
+  const v = [], t = [], n = [], P = [], U = [], N = [];
+  let allN = true;
+  const ix = (s, len) => { const i = parseInt(s, 10); return i < 0 ? len + i : i - 1; };
+  for (const raw of text.split(/\r?\n/)) {
+    const l = raw.trim();
+    if (!l || l[0] === '#') continue;
+    const a = l.split(/\s+/), k = a[0];
+    if (k === 'v') v.push(+a[1], +a[2], +a[3]);
+    else if (k === 'vt') t.push(+a[1], +a[2]);
+    else if (k === 'vn') n.push(+a[1], +a[2], +a[3]);
+    else if (k === 'f') {
+      const vs = a.slice(1).map(s => s.split('/'));
+      for (let i = 1; i < vs.length - 1; i++) {
+        for (const q of [vs[0], vs[i], vs[i + 1]]) {
+          const vi = ix(q[0], v.length / 3);
+          P.push(v[vi * 3], v[vi * 3 + 1], v[vi * 3 + 2]);
+          if (q[1]) { const ti = ix(q[1], t.length / 2); U.push(t[ti * 2], t[ti * 2 + 1]); } else U.push(0, 0);
+          if (q[2]) { const ni = ix(q[2], n.length / 3); N.push(n[ni * 3], n[ni * 3 + 1], n[ni * 3 + 2]); } else { allN = false; N.push(0, 0, 1); }
+        }
+      }
+    }
+  }
+  if (!P.length) throw new Error('tidak ada permukaan (face) di file ini');
+  if (P.some(Number.isNaN)) throw new Error('data vertex rusak');
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
+  if (allN && !N.some(Number.isNaN)) g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
+  else g.computeVertexNormals();
+  return g;
+}
+
+function setModel(g) {
+  g.computeBoundingBox();
+  const b = g.boundingBox, c = new THREE.Vector3(), s = new THREE.Vector3();
+  b.getCenter(c); b.getSize(s);
+  g.translate(-c.x, -c.y, -c.z);
+  const k = 2 / Math.max(s.x, s.y, s.z, 1e-6);
+  g.scale(k, k, k);
+  if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); }
+  mesh = new THREE.Mesh(g, newMat());
+  scene.add(mesh);
+}
+
+function newMat() {
+  if (mat) mat.dispose();
+  const px = $('px').checked;
+  if (tex) {
+    tex.magFilter = px ? THREE.NearestFilter : THREE.LinearFilter;
+    tex.minFilter = px ? THREE.NearestFilter : THREE.LinearMipmapLinearFilter;
+    tex.generateMipmaps = !px;
+    tex.needsUpdate = true;
+  }
+  const M = $('lit').checked ? THREE.MeshLambertMaterial : THREE.MeshBasicMaterial;
+  mat = new M({map: tex || null, color: tex ? 0xffffff : 0xb8c0c8, side: THREE.DoubleSide, alphaTest: .1});
+  return mat;
+}
+
+function setTex(img) {
+  if (tex) tex.dispose();
+  tex = new THREE.Texture(img);
+  tex.encoding = THREE.sRGBEncoding;
+  tex.anisotropy = 8;
+  $('px').checked = img.width <= 128;
+  if (mesh) mesh.material = newMat();
+}
+
+function frame() {
+  const pos = mesh.geometry.attributes.position.array, n = pos.length / 3, st = Math.max(1, Math.ceil(n / 30000));
+  const inv = cam.matrixWorldInverse, v = new THREE.Vector3();
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+  for (let i = 0; i < n; i += st) {
+    v.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]).applyMatrix4(inv);
+    if (v.x < x0) x0 = v.x; if (v.x > x1) x1 = v.x;
+    if (v.y < y0) y0 = v.y; if (v.y > y1) y1 = v.y;
+  }
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const h = Math.max(x1 - x0, y1 - y0, 1e-3) / 2 * 1.08 / (+$('zoom').value / 100);
+  cam.left = cx - h; cam.right = cx + h; cam.top = cy + h; cam.bottom = cy - h;
+  cam.near = .1; cam.far = 50; cam.updateProjectionMatrix();
+}
+
+function render() {
+  $('yaw_o').textContent = $('yaw').value + '°';
+  $('pitch_o').textContent = $('pitch').value + '°';
+  $('zoom_o').textContent = $('zoom').value + '%';
+  $('dim').textContent = size + ' × ' + size + ' px';
+  $('empty').hidden = !!mesh;
+  $('save').disabled = !mesh;
+  canvas.classList.toggle('px', size <= 128);
+  if (!R) return;
+  R.setSize(size, size, false);
+  const tr = $('trans').checked;
+  R.setClearColor(tr ? 0x000000 : $('bg').value, tr ? 0 : 1);
+  if (mesh) {
+    const y = +$('yaw').value * Math.PI / 180, p = +$('pitch').value * Math.PI / 180;
+    cam.position.set(10 * Math.cos(p) * Math.sin(y), 10 * Math.sin(p), 10 * Math.cos(p) * Math.cos(y));
+    cam.up.set(0, 1, 0); cam.lookAt(0, 0, 0); cam.updateMatrixWorld();
+    dir.position.copy(cam.position).add(new THREE.Vector3(-3, 5, 2).applyQuaternion(cam.quaternion));
+    frame();
+    R.render(scene, cam);
+  } else R.clear();
+}
+
+function readURL(f) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(new Error('gagal membaca file')); r.readAsDataURL(f); });
+}
+function loadImg(src) {
+  return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('gambar tidak bisa dibuka')); i.src = src; });
+}
+
+async function load(files) {
+  const errs = [];
+  for (const f of files) {
+    const ext = f.name.split('.').pop().toLowerCase();
+    try {
+      if (ext === 'obj') {
+        const g = parseOBJ(await f.text());
+        const tri = g.attributes.position.count / 3;
+        setModel(g);
+        name = f.name.replace(/\.obj$/i, '');
+        $('fm').textContent = f.name + ' (' + tri.toLocaleString('id-ID') + ' segitiga)';
+      } else if (f.type.startsWith('image/') || /^(png|jpe?g|webp|gif|bmp)$/.test(ext)) {
+        setTex(await loadImg(await readURL(f)));
+        $('ft').textContent = f.name;
+      } else errs.push(f.name + ': format tidak didukung. Pakai .obj atau gambar.');
+    } catch (e) { errs.push(f.name + ': ' + e.message + '.'); }
+  }
+  msg(errs.join(' '));
+  render();
+}
+
+async function demo() {
+  const verts = [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
+  const quads = [[5,6,7,8],[2,1,4,3],[1,5,8,4],[6,2,3,7],[4,8,7,3],[1,2,6,5]];
+  const obj = verts.map(v => 'v ' + v.join(' ')).join('\n') + '\nvt 0 0\nvt 1 0\nvt 1 1\nvt 0 1\n' +
+    quads.map(q => 'f ' + q.map((x, i) => x + '/' + (i + 1)).join(' ')).join('\n');
+  const c = document.createElement('canvas'); c.width = c.height = 16;
+  const x = c.getContext('2d');
+  x.fillStyle = '#c28a4a'; x.fillRect(0, 0, 16, 16);
+  x.fillStyle = '#8a5a24';
+  x.fillRect(0, 0, 16, 1); x.fillRect(0, 15, 16, 1); x.fillRect(0, 0, 1, 16); x.fillRect(15, 0, 1, 16);
+  for (let i = 1; i < 15; i++) { x.fillRect(i, i, 1, 1); x.fillRect(15 - i, i, 1, 1); }
+  const g = parseOBJ(obj);
+  setModel(g);
+  name = 'contoh-kotak';
+  $('fm').textContent = 'contoh-kotak.obj (12 segitiga)';
+  $('ft').textContent = 'contoh-kotak.png (16 × 16)';
+  setTex(await loadImg(c.toDataURL()));
+  msg('');
+  render();
+}
+
+async function save() {
+  if (!mesh) return;
+  render();
+  const fn = name + '_' + size + '.png';
+  const DL = await DLp;
+  if (!DL) {
+    $('out').src = canvas.toDataURL('image/png');
+    $('out').style.display = 'block';
+    msg('Unduhan langsung tidak tersedia di sini. Tekan lama gambar di bawah pratinjau untuk menyimpan.');
+    return;
+  }
+  const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+  try { await DL.save({filename: fn, data: blob}); msg('Tersimpan: ' + fn); }
+  catch (e) { if (e.code !== 'declined') msg('Gagal menyimpan (' + (e.code || 'kesalahan tidak diketahui') + ').'); }
+}
+
+$('file').addEventListener('change', e => { load([...e.target.files]); e.target.value = ''; });
+['dragenter', 'dragover'].forEach(ev => window.addEventListener(ev, e => { e.preventDefault(); $('drop').classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => window.addEventListener(ev, e => { e.preventDefault(); if (ev === 'drop' || !e.relatedTarget) $('drop').classList.remove('over'); }));
+window.addEventListener('drop', e => { if (e.dataTransfer && e.dataTransfer.files.length) load([...e.dataTransfer.files]); });
+
+$('demo').onclick = demo;
+$('save').onclick = save;
+$('reset').onclick = () => { $('yaw').value = 45; $('pitch').value = 30; $('zoom').value = 100; render(); };
+['yaw', 'pitch', 'zoom', 'bg'].forEach(id => $(id).addEventListener('input', render));
+$('trans').onchange = () => { $('bg').disabled = $('trans').checked; render(); };
+$('px').onchange = $('lit').onchange = () => { if (mesh) mesh.material = newMat(); render(); };
+$('sizes').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  size = +b.dataset.s;
+  [...$('sizes').children].forEach(x => x.setAttribute('aria-pressed', x === b));
+  render();
+});
+
+let drag = null;
+canvas.addEventListener('pointerdown', e => { if (!mesh) return; drag = {x: e.clientX, y: e.clientY, yaw: +$('yaw').value, pitch: +$('pitch').value}; canvas.setPointerCapture(e.pointerId); canvas.style.cursor = 'grabbing'; });
+canvas.addEventListener('pointermove', e => {
+  if (!drag) return;
+  $('yaw').value = ((drag.yaw - (e.clientX - drag.x) * .6) % 360 + 360) % 360;
+  $('pitch').value = Math.max(-80, Math.min(80, drag.pitch + (e.clientY - drag.y) * .6));
+  render();
+});
+['pointerup', 'pointercancel'].forEach(ev => canvas.addEventListener(ev, () => { drag = null; canvas.style.cursor = 'grab'; }));
+
+render();
+</script>
+</body>
+</html>
